@@ -1,0 +1,174 @@
+:root {
+    --color-primary: #3498db;
+    --color-primary-dark: #2980b9;
+    --color-text: #333;
+    --color-text-light: #7f8c8d;
+    --color-bg: #f5f7fa;
+    --color-white: #fff;
+    --color-error: #e74c3c;
+    --color-border: #ddd;
+    --color-shadow: rgba(0, 0, 0, 0.1);
+    
+    --font-main: Arial, sans-serif;
+    --font-size-normal: 14px;
+    --font-size-large: 16px;
+    --font-size-heading: 24px;
+    
+    --spacing-small: 5px;
+    --spacing-medium: 10px;
+    --spacing-large: 20px;
+    
+    --border-radius: 4px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-main);
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    line-height: 1.4;
+    padding: var(--spacing-large);
+    position: relative;
+}
+
+h1 {
+    font-size: var(--font-size-heading);
+    margin-bottom: var(--spacing-large);
+    color: var(--color-text);
+}
+
+h3 {
+    margin: var(--spacing-large) 0 var(--spacing-medium);
+}
+
+hr {
+    margin: var(--spacing-large) 0;
+    border: none;
+    border-top: 1px solid var(--color-border);
+}
+
+button {
+    padding: var(--spacing-medium);
+    border: none;
+    border-radius: var(--border-radius);
+    background-color: var(--color-primary);
+    color: var(--color-white);
+    cursor: pointer;
+    font-size: var(--font-size-normal);
+}
+
+button:hover {
+    background-color: var(--color-primary-dark);
+}
+
+#addCityContainer.hidden {
+    display: none;
+}
+
+#cityInput {
+    padding: var(--spacing-medium);
+    width: 300px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    font-size: var(--font-size-large);
+    margin-right: var(--spacing-medium);
+}
+
+#cityDropdown {
+    display: none;
+    position: absolute;
+    background: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    max-height: 200px;
+    overflow-y: auto;
+    width: 300px;
+    z-index: 100;
+    box-shadow: 0 4px 8px var(--color-shadow);
+}
+
+#cityDropdown div {
+    padding: var(--spacing-medium);
+    cursor: pointer;
+    border-bottom: 1px solid var(--color-border);
+}
+
+#cityDropdown div:last-child {
+    border-bottom: none;
+}
+
+#cityDropdown div:hover {
+    background-color: var(--color-bg);
+}
+
+.error-message {
+    color: var(--color-error);
+    margin-top: var(--spacing-medium);
+    display: none;
+}
+
+#citiesList {
+    list-style: none;
+    margin-bottom: var(--spacing-large);
+}
+
+#citiesList li {
+    display: inline-block;
+    padding: var(--spacing-medium);
+    margin-right: var(--spacing-medium);
+    margin-bottom: var(--spacing-medium);
+    background-color: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+}
+
+#citiesList li.current {
+    background-color: var(--color-primary);
+    color: var(--color-white);
+    font-weight: bold;
+}
+
+#weatherContainer {
+    background-color: var(--color-white);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-large);
+    border: 1px solid var(--color-border);
+}
+
+.day-forecast {
+    display: inline-block;
+    width: 30%;
+    margin: 0 1.5% var(--spacing-large);
+    padding: var(--spacing-large);
+    background-color: var(--color-bg);
+    border-radius: var(--border-radius);
+    text-align: center;
+}
+
+.day-forecast .temperature {
+    font-size: 20px;
+    font-weight: bold;
+    color: var(--color-error);
+    margin: var(--spacing-medium) 0;
+}
+
+.day-forecast .description {
+    color: var(--color-text-light);
+}
+
+@media (max-width: 768px) {
+    #cityInput, #cityDropdown {
+        width: 100%;
+    }
+    
+    .day-forecast {
+        width: 100%;
+        margin: 0 0 var(--spacing-large);
+    }
+}

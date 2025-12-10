@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Weather App</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <h1>Прогноз погоды</h1>
@@ -12,19 +13,19 @@
     
     <hr>
     
-    <div id="addCityContainer" style="display: none;">
+    <div id="addCityContainer" class="hidden">
         <h3>Добавить город:</h3>
-        <input type="text" id="cityInput" placeholder="Введите город">
+        <input type="text" id="cityInput" placeholder="Начните вводить название...">
         <button id="addCityBtn">Добавить</button>
+        <div id="cityDropdown"></div>
+        <div id="cityError" class="error-message"></div>
     </div>
     
     <h3>Ваши города:</h3>
-    <ul id="citiesList">
-        
-    </ul>
+    <ul id="citiesList"></ul>
     
     <div id="weatherContainer">
-        <p>Выберите город или разрешите геолокацию</p>
+        <p>Загрузка...</p>
     </div>
     
     <script src="config.js"></script>

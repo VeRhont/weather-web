@@ -1,5 +1,4 @@
 class WeatherApp {
-
     constructor(apiKey) {
         this.weatherAPI = new WeatherAPI(apiKey);
         this.state = {
@@ -7,7 +6,15 @@ class WeatherApp {
             currentCityIndex: 0,
             geolocationDenied: false
         };
-        this.storageKey = "weatherAppState"
+        this.storageKey = "weatherAppState";
+
+        this.availableCities = [
+            "Москва", "Санкт-Петербург", "Новосибирск", "Екатеринбург", "Казань",
+            "Нижний Новгород", "Челябинск", "Самара", "Омск", "Ростов-на-Дону",
+            "Уфа", "Красноярск", "Воронеж", "Пермь", "Волгоград",
+            "Киев", "Минск", "Астана", "Лондон", "Париж",
+            "Берлин", "Нью-Йорк", "Токио", "Пекин", "Стамбул"
+        ].sort();
         
         this.init();
     }
@@ -34,18 +41,82 @@ class WeatherApp {
     loadState() {
         const saved = localStorage.getItem(this.storageKey);
         if (saved) {
-            this.state = JSON.parse(saved);
-            return true;
+            try {
+                this.state = JSON.parse(saved);
+                return true;
+            } catch (e) {
+                console.error('Ошибка при чтении из localStorage:', e);
+                return false;
+            }
         }
         return false;
     }
 
     showAddCityForm() {
-        document.getElementById('addCityContainer').style.display = 'block';
+        document.getElementById('addCityContainer').classList.remove('hidden');
     }
     
     hideAddCityForm() {
-        document.getElementById('addCityContainer').style.display = 'none';
+        document.getElementById('addCityContainer').classList.add('hidden');
+    }
+
+    handleCityInput(inputValue) {
+        const dropdown = document.getElementById('cityDropdown');
+        const errorDiv = document.getElementById('cityError');
+        
+        errorDiv.style.display = 'none';
+        
+        if (inputValue.length < 2) {
+            this.hideDropdown();
+            return;
+        }
+        
+        const searchTerm = inputValue.toLowerCase();
+        const filteredCities = this.availableCities.filter(city => 
+            city.toLowerCase().includes(searchTerm)
+        );
+        
+        if (filteredCities.length === 0) {
+            this.hideDropdown();
+            errorDiv.textContent = `Город "${inputValue}" не найден в списке доступных городов`;
+            errorDiv.style.display = 'block';
+            return;
+        }
+        
+        this.showDropdown(filteredCities);
+    }
+
+    showDropdown(cities) {
+        const dropdown = document.getElementById('cityDropdown');
+        const input = document.getElementById('cityInput');
+        
+        dropdown.innerHTML = '';
+        
+        cities.forEach(city => {
+            const item = document.createElement('div');
+            item.textContent = city;
+            
+            item.addEventListener('click', () => {
+                input.value = city;
+                this.hideDropdown();
+                document.getElementById('cityError').style.display = 'none';
+            });
+            
+            dropdown.appendChild(item);
+        });
+        
+        dropdown.style.display = 'block';
+        
+        const rect = input.getBoundingClientRect();
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        dropdown.style.position = 'absolute';
+        dropdown.style.left = rect.left + 'px';
+        dropdown.style.top = (rect.top + rect.height + scrollTop) + 'px';
+        dropdown.style.width = rect.width + 'px';
+    }
+    
+    hideDropdown() {
+        document.getElementById('cityDropdown').style.display = 'none';
     }
     
     displayWeather(data) {
@@ -86,12 +157,11 @@ class WeatherApp {
             const description = dayForecast.weather[0].description;
             
             html += `
-                <div>
-                    <strong>${dayName}</strong><br>
+                <div class="day-forecast">
+                    <div class="day-name">${dayName}</div>
                     <img src="https://openweathermap.org/img/wn/${icon}.png" alt="${description}">
-                    ${minTemp}°C / ${maxTemp}°C<br>
-                    ${description}
-                    <br>
+                    <div class="temperature">${minTemp}°C / ${maxTemp}°C</div>
+                    <div class="description">${description}</div>
                 </div>
             `;
         });
@@ -108,7 +178,7 @@ class WeatherApp {
             li.textContent = city.name;
             
             if (index === this.state.currentCityIndex) {
-                li.style.fontWeight = 'bold';
+                li.classList.add('current');
             }
             
             li.addEventListener('click', () => {
@@ -122,6 +192,31 @@ class WeatherApp {
     }
     
     async addCity(cityName) {
+        const normalizedCityName = cityName.trim().toLowerCase();
+        const errorDiv = document.getElementById('cityError');
+        
+        errorDiv.style.display = 'none';
+        
+        const isValidCity = this.availableCities.some(city => 
+            city.toLowerCase() === normalizedCityName
+        );
+        
+        if (!isValidCity) {
+            errorDiv.textContent = `Город "${cityName}" не найден в списке доступных городов`;
+            errorDiv.style.display = 'block';
+            return;
+        }
+        
+        const isDuplicate = this.state.cities.some(city => 
+            city.name.toLowerCase() === normalizedCityName
+        );
+        
+        if (isDuplicate) {
+            errorDiv.textContent = `Город "${cityName}" уже добавлен`;
+            errorDiv.style.display = 'block';
+            return;
+        }
+        
         try {
             const data = await this.weatherAPI.getWeatherByCity(cityName);
             
@@ -131,12 +226,18 @@ class WeatherApp {
             });
             
             this.state.currentCityIndex = this.state.cities.length - 1;
+            this.saveState();
             this.updateCitiesList();
             this.displayWeather(data);
             
+            document.getElementById('cityInput').value = '';
+            errorDiv.style.display = 'none';
+            this.hideDropdown();
+            
         } catch (error) {
             console.error('Не удалось добавить город:', error.message);
-            alert(`Не удалось найти город "${cityName}"`);
+            errorDiv.textContent = `Ошибка при получении погоды для "${cityName}": ${error.message}`;
+            errorDiv.style.display = 'block';
         }
     }
     
@@ -220,13 +321,28 @@ class WeatherApp {
             const cityName = document.getElementById('cityInput').value.trim();
             if (cityName) {
                 this.addCity(cityName);
-                document.getElementById('cityInput').value = '';
             }
         });
 
         document.getElementById('cityInput').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 document.getElementById('addCityBtn').click();
+            }
+        });
+
+        document.getElementById('cityInput').addEventListener('input', (e) => {
+            this.handleCityInput(e.target.value);
+        });
+
+        document.addEventListener('click', (e) => {
+            const dropdown = document.getElementById('cityDropdown');
+            const input = document.getElementById('cityInput');
+            
+            if (dropdown.style.display === 'block' && 
+                e.target !== dropdown && 
+                !dropdown.contains(e.target) && 
+                e.target !== input) {
+                this.hideDropdown();
             }
         });
     }
