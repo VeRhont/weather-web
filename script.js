@@ -4,7 +4,6 @@ class WeatherApp {
         this.state = {
             cities: [],
             currentCityIndex: 0,
-            geolocationDenied: false
         };
         this.storageKey = "weatherAppState";
 
@@ -15,6 +14,9 @@ class WeatherApp {
             "Киев", "Минск", "Астана", "Лондон", "Париж",
             "Берлин", "Нью-Йорк", "Токио", "Пекин", "Стамбул"
         ].sort();
+        this.pendingRequests = new Set();
+
+        this.currentGeolocation = "Текущее местоположение"
         
         this.init();
     }
@@ -42,7 +44,16 @@ class WeatherApp {
         const saved = localStorage.getItem(this.storageKey);
         if (saved) {
             try {
-                this.state = JSON.parse(saved);
+                const parsed = JSON.parse(saved);
+                
+                if (parsed.cities && Array.isArray(parsed.cities)) {
+                    parsed.cities.forEach(city => {
+                        if (!city.type) {
+                            city.type = city.name === this.currentGeolocation ? 'geolocation' : 'city';
+                        }
+                    });
+                }
+                this.state = parsed;
                 return true;
             } catch (e) {
                 console.error('Ошибка при чтении из localStorage:', e);
@@ -61,9 +72,7 @@ class WeatherApp {
     }
 
     handleCityInput(inputValue) {
-        const dropdown = document.getElementById('cityDropdown');
         const errorDiv = document.getElementById('cityError');
-        
         errorDiv.style.display = 'none';
         
         if (inputValue.length < 2) {
@@ -122,8 +131,13 @@ class WeatherApp {
     displayWeather(data) {
         const container = document.getElementById('weatherContainer');
         
-        if (!data || data.cod !== "200") {
-            container.innerHTML = '<p>Ошибка загрузки данных</p>';
+        if (!data) {
+            this.showError('Нет данных для отображения');
+            return;
+        }
+        
+        if (data.cod && data.cod !== "200") {
+            this.showError(data.message || 'Неизвестная ошибка');
             return;
         }
         
@@ -175,20 +189,88 @@ class WeatherApp {
         
         this.state.cities.forEach((city, index) => {
             const li = document.createElement('li');
-            li.textContent = city.name;
+            li.className = 'city-item';
             
-            if (index === this.state.currentCityIndex) {
-                li.classList.add('current');
-            }
+            const cityContainer = document.createElement('div');
+            cityContainer.className = 'city-container';
+            
+            const cityName = document.createElement('span');
+            cityName.textContent = city.name;
+            cityName.className = 'city-name';
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = '×';
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.title = 'Удалить город';
+            
+            cityContainer.appendChild(cityName);
+            cityContainer.appendChild(deleteBtn);
+            
+            li.appendChild(cityContainer);
+            
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.removeCity(index);
+            });
             
             li.addEventListener('click', () => {
                 this.switchCity(index);
             });
             
+            if (index === this.state.currentCityIndex) {
+                li.classList.add('current');
+            }
+            
             list.appendChild(li);
         });
         
         this.saveState();
+    }
+
+    removeCity(index) {
+        const city = this.state.cities[index];
+        
+        if (city.type === 'geolocation' && this.state.cities.length > 1) {
+            if (!confirm("Вы уверены, что хотите удалить текущее местоположение?")) {
+                return;
+            }
+        }
+        
+        this.state.cities.splice(index, 1);
+        
+        if (this.state.currentCityIndex >= index) {
+            this.state.currentCityIndex = Math.max(0, this.state.currentCityIndex - 1);
+        }
+        
+        if (this.state.cities.length > 0) {
+            this.saveState();
+            this.updateCitiesList();
+            this.displayWeather(this.state.cities[this.state.currentCityIndex].data);
+        } else {
+            this.saveState();
+            this.updateCitiesList();
+            document.getElementById('weatherContainer').innerHTML = 
+                '<div class="empty-state">Добавьте город для отображения погоды</div>';
+        }
+    }
+
+    showLoading(message = 'Загрузка данных...') {
+        const container = document.getElementById('weatherContainer');
+        container.innerHTML = `
+            <div class="loading-state">
+                <div class="spinner"></div>
+                <p>${message}</p>
+            </div>
+        `;
+    }
+
+    showError(message) {
+        const container = document.getElementById('weatherContainer');
+        container.innerHTML = `
+            <div class="error-state">
+                <p>${message}</p>
+            </div>
+        `;
     }
     
     async addCity(cityName) {
@@ -196,6 +278,10 @@ class WeatherApp {
         const errorDiv = document.getElementById('cityError');
         
         errorDiv.style.display = 'none';
+        
+        if (this.pendingRequests.has(normalizedCityName)) {
+            return;
+        }
         
         const isValidCity = this.availableCities.some(city => 
             city.toLowerCase() === normalizedCityName
@@ -208,7 +294,7 @@ class WeatherApp {
         }
         
         const isDuplicate = this.state.cities.some(city => 
-            city.name.toLowerCase() === normalizedCityName
+            city.name.toLowerCase() === normalizedCityName && city.type !== 'geolocation'
         );
         
         if (isDuplicate) {
@@ -216,13 +302,16 @@ class WeatherApp {
             errorDiv.style.display = 'block';
             return;
         }
+
+        this.pendingRequests.add(normalizedCityName);
         
         try {
             const data = await this.weatherAPI.getWeatherByCity(cityName);
             
             this.state.cities.push({
                 name: data.city.name,
-                data: data
+                data: data,
+                type: 'city'
             });
             
             this.state.currentCityIndex = this.state.cities.length - 1;
@@ -236,8 +325,10 @@ class WeatherApp {
             
         } catch (error) {
             console.error('Не удалось добавить город:', error.message);
-            errorDiv.textContent = `Ошибка при получении погоды для "${cityName}": ${error.message}`;
+            errorDiv.textContent = `Ошибка при получении погоды для "${cityName}"`;
             errorDiv.style.display = 'block';
+        } finally {
+            this.pendingRequests.delete(normalizedCityName);
         }
     }
     
@@ -253,16 +344,53 @@ class WeatherApp {
     
     async refreshWeather() {
         const currentCity = this.state.cities[this.state.currentCityIndex];
-        
         if (!currentCity) return;
         
+        const requestKey = currentCity.type === 'geolocation' 
+            ? 'geolocation_refresh' 
+            : currentCity.name.toLowerCase();
+        
+        if (this.pendingRequests.has(requestKey)) return;
+        
+        this.pendingRequests.add(requestKey);
+        
+        this.showLoading(`Обновление погоды для ${currentCity.name}...`);
+        
         try {
-            const newData = await this.weatherAPI.getWeatherByCity(currentCity.name);
+            let newData;
+            
+            if (currentCity.type === 'geolocation') {
+                if (currentCity.coords) {
+                    newData = await this.weatherAPI.getWeatherByCoords(
+                        currentCity.coords.lat, 
+                        currentCity.coords.lon
+                    );
+                } else {
+                    const lat = currentCity.data.city.coord.lat;
+                    const lon = currentCity.data.city.coord.lon;
+                    newData = await this.weatherAPI.getWeatherByCoords(lat, lon);
+                }
+            } else {
+                newData = await this.weatherAPI.getWeatherByCity(currentCity.name);
+            }
+            
             currentCity.data = newData;
+            
+            if (currentCity.type === 'geolocation' && !currentCity.coords) {
+                currentCity.coords = {
+                    lat: newData.city.coord.lat,
+                    lon: newData.city.coord.lon
+                };
+            }
+            
             this.displayWeather(newData);
             this.saveState();
+            
         } catch (error) {
             console.error('Ошибка при обновлении погоды:', error.message);
+            this.showError(`Ошибка при обновлении погоды: ${error.message}`);
+        } finally {
+            this.pendingRequests.delete(requestKey);
         }
     }
     
@@ -270,10 +398,16 @@ class WeatherApp {
         if (!navigator.geolocation) {
             console.error('Геолокация не поддерживается');
             this.showAddCityForm();
-            document.getElementById('weatherContainer').innerHTML = 
-                '<p>Геолокация не поддерживается вашим браузером. Добавьте город вручную.</p>';
+            this.showError('Геолокация не поддерживается вашим браузером');
             return;
         }
+        
+        if (this.pendingRequests.has('geolocation_request')) {
+            return;
+        }
+        
+        this.pendingRequests.add('geolocation_request');
+        this.showLoading('Определение вашего местоположения...');
         
         navigator.geolocation.getCurrentPosition(
             async (position) => {
@@ -282,37 +416,50 @@ class WeatherApp {
                 try {
                     const data = await this.weatherAPI.getWeatherByCoords(latitude, longitude);
                     
-                    this.state.cities = [{
-                        name: "Текущее местоположение",
-                        data: data
-                    }];
+                    const existingIndex = this.state.cities.findIndex(city => 
+                        city.type === 'geolocation'
+                    );
                     
-                    this.state.currentCityIndex = 0;
-                    this.updateCitiesList();
+                    if (existingIndex >= 0) {
+                        this.state.cities[existingIndex] = {
+                            name: this.currentGeolocation,
+                            data: data,
+                            type: 'geolocation',
+                            coords: { lat: latitude, lon: longitude }
+                        }; 
+                    } else {
+                        this.state.cities.push({
+                            name: this.currentGeolocation,
+                            data: data,
+                            type: 'geolocation',
+                            coords: { lat: latitude, lon: longitude }
+                        });
+                        this.state.currentCityIndex = this.state.cities.length - 1;
+                    }
+                    
                     this.displayWeather(data);
-                    this.showAddCityForm();
+                    this.saveState();
+                    this.updateCitiesList();
                     
                 } catch (error) {
                     console.error('Ошибка при получении погоды по геолокации:', error.message);
+                    this.showError(`Ошибка при получении погоды: ${error.message}`);
+                } finally {
+                    this.pendingRequests.delete('geolocation_request');
                     this.showAddCityForm();
                 }
             },
             (error) => {
                 console.log('Геолокация отклонена: ' + error.message);
-                this.state.geolocationDenied = true;
-                
-                this.showAddCityForm();
                 document.getElementById('weatherContainer').innerHTML = 
                     '<p>Добавьте город для отображения погоды</p>';
+                this.pendingRequests.delete('geolocation_request');
+                this.showAddCityForm();
             }
         );
     }
     
     setupEventListeners() {
-        document.getElementById('getLocationBtn').addEventListener('click', () => {
-            this.requestGeolocation();
-        });
-        
         document.getElementById('refreshBtn').addEventListener('click', () => {
             this.refreshWeather();
         });
