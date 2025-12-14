@@ -324,7 +324,7 @@ class WeatherApp {
             this.hideDropdown();
             
         } catch (error) {
-            console.error('Не удалось добавить город:', error.message);
+            console.error('Не удалось добавить город');
             errorDiv.textContent = `Ошибка при получении погоды для "${cityName}"`;
             errorDiv.style.display = 'block';
         } finally {

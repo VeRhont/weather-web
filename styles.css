@@ -8,6 +8,8 @@
     --color-error: #e74c3c;
     --color-border: #ddd;
     --color-shadow: rgba(0, 0, 0, 0.1);
+    --color-card-bg: #ffffff;
+    --color-card-shadow: rgba(0, 0, 0, 0.08);
     
     --font-main: Arial, sans-serif;
     --font-size-normal: 14px;
@@ -146,9 +148,11 @@ button:hover {
     width: 30%;
     margin: var(--spacing-large) 1.5% var(--spacing-large);
     padding: var(--spacing-large);
-    background-color: var(--color-bg);
+    background-color: var(--color-card-bg);
     border-radius: var(--border-radius);
     text-align: center;
+    box-shadow: 0 2px 8px var(--color-card-shadow);
+    border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .day-forecast .temperature {
